@@ -1,0 +1,53 @@
+name: Probe16
+
+# The iOS 16 sensor probe in Probe16/. Separate from Build: it has no Xcode project,
+# ships two TrollStore .tipa files, and publishes them as a pre-release so they can be
+# downloaded straight onto the phone. Never marked latest, so the app source that
+# follows releases/latest is unaffected.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "Probe16/**"
+      - ".github/workflows/probe16.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  tipa:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          newest=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          sudo xcode-select -s "$newest"
+          xcodebuild -version
+
+      - name: Install ldid
+        run: brew install ldid
+
+      - name: Build
+        run: bash Probe16/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MiniWattsProbe16
+          path: build/probe16/*.tipa
+          if-no-files-found: error
+
+      - name: Publish pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: probe16-${{ github.run_number }}
+          name: Probe16 build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          make_latest: false
+          files: build/probe16/*.tipa
+          fail_on_unmatched_files: true
+          body: |
+            iOS 16 sensor probe for TrollStore. Not MiniWatts itself.
+            sandboxed = normal sandbox; unsandboxed = platform-application + no-sandbox.
