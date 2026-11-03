@@ -54,14 +54,12 @@ final class ProbeModel: ObservableObject {
         let stamp = Self.stampFormatter.string(from: Date())
         let label = String(note.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }.prefix(30))
         let name = ["MiniWattsProbe", model, stamp, label].filter { !$0.isEmpty }.joined(separator: "-") + ".json"
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
-        do {
-            try data.write(to: url)
-            fileURL = url
-            status = "完成：\(name)"
-        } catch {
-            status = "写文件失败：\(error.localizedDescription)，可用“复制全部文本”"
-            fileURL = nil
+        let (url, failures) = Self.write(data, name: name)
+        fileURL = url
+        if let url {
+            status = "完成：\(url.path)"
+        } else {
+            status = "写文件失败，可用“分享文本”或“复制全部文本”\n" + failures.joined(separator: "\n")
         }
 
         text = String(decoding: data, as: UTF8.self)
@@ -80,6 +78,29 @@ final class ProbeModel: ObservableObject {
         IOPMPowerSource 属性 \(batteryKeys) 个
         文件 \(data.count / 1024) KB
         """
+    }
+
+    /// The first folder that takes the file. The unsandboxed build cannot write to the
+    /// temporary directory it is handed, so this walks on to the app's own folders and
+    /// then to /var/mobile/Documents, which Filza can also reach.
+    private static func write(_ data: Data, name: String) -> (URL?, [String]) {
+        let files = FileManager.default
+        var folders = [files.temporaryDirectory]
+        folders += files.urls(for: .documentDirectory, in: .userDomainMask)
+        folders += files.urls(for: .cachesDirectory, in: .userDomainMask)
+        folders.append(URL(fileURLWithPath: "/var/mobile/Documents/MiniWattsProbe", isDirectory: true))
+        var failures: [String] = []
+        for folder in folders {
+            do {
+                try files.createDirectory(at: folder, withIntermediateDirectories: true)
+                let url = folder.appendingPathComponent(name)
+                try data.write(to: url)
+                return (url, failures)
+            } catch {
+                failures.append("\(folder.path): \(error.localizedDescription)")
+            }
+        }
+        return (nil, failures)
     }
 
     private static let stampFormatter: DateFormatter = {
@@ -117,11 +138,16 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                if let url = model.fileURL {
+                if !model.preview.isEmpty {
                     Section("结果") {
                         Text(model.summary).font(.footnote)
-                        ShareLink(item: url) {
-                            Label("分享 JSON 文件", systemImage: "square.and.arrow.up")
+                        if let url = model.fileURL {
+                            ShareLink(item: url) {
+                                Label("分享 JSON 文件", systemImage: "square.and.arrow.up")
+                            }
+                        }
+                        ShareLink(item: model.text) {
+                            Label("分享文本", systemImage: "doc.plaintext")
                         }
                         Button("复制全部文本") { UIPasteboard.general.string = model.text }
                     }
