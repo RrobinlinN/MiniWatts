@@ -38,13 +38,15 @@ struct ThermalView: View {
             } else {
                 mapPanel
                 trendPanel
-                if !snapshot.temperatureWarnings.isEmpty {
-                    temperatureWarningsPanel
-                }
                 ForEach(snapshot.temperaturesByZone) { group in
                     zonePanel(group)
                 }
                 modelNote
+                // Last: on an iPhone 12 it lists two dozen switched-off sensors, and
+                // above the zones it pushed every live reading off the screen.
+                if !snapshot.temperatureWarnings.isEmpty {
+                    temperatureWarningsPanel
+                }
             }
         }
     }
