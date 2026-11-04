@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AdapterView: View {
-    @Environment(PowerMonitor.self) private var monitor
+    @EnvironmentObject private var monitor: PowerMonitor
 
     private var snapshot: PowerSnapshot { monitor.snapshot }
 

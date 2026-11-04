@@ -1,5 +1,6 @@
 import AVFoundation
 import AVKit
+import Combine
 import SwiftUI
 
 /// The live readout as a floating window, drawn through Picture in Picture.
@@ -19,8 +20,7 @@ import SwiftUI
 /// Everything here is one process-wide instance, injected from `MiniWattsApp`: the
 /// layer PiP draws from has to stay in the window hierarchy for the whole life of
 /// the app, and Settings — where the button lives — is a sheet that comes and goes.
-@Observable
-final class FloatingMeterController {
+final class FloatingMeterController: ObservableObject {
     private static let showPowerKey = "floatingMeterShowPower"
     private static let showTemperaturesKey = "floatingMeterShowTemperatures"
     private static let layoutKey = "floatingMeterLayout"
@@ -39,33 +39,33 @@ final class FloatingMeterController {
         case failed(String)
     }
 
-    private(set) var status: Status
+    @Published private(set) var status: Status
     /// The system will only open a window once the layer has painted a frame and is
     /// on screen, so the button waits for this.
-    private(set) var isReady = false
+    @Published private(set) var isReady = false
 
-    var showPower: Bool {
+    @Published var showPower: Bool {
         didSet {
             UserDefaults.standard.set(showPower, forKey: Self.showPowerKey)
             renderLatest()
         }
     }
 
-    var showTemperatures: Bool {
+    @Published var showTemperatures: Bool {
         didSet {
             UserDefaults.standard.set(showTemperatures, forKey: Self.showTemperaturesKey)
             renderLatest()
         }
     }
 
-    var layout: FloatingMeterLayout {
+    @Published var layout: FloatingMeterLayout {
         didSet {
             UserDefaults.standard.set(layout.rawValue, forKey: Self.layoutKey)
             renderLatest()
         }
     }
 
-    var temperatureSelection: FloatingTemperatureSelection {
+    @Published var temperatureSelection: FloatingTemperatureSelection {
         didSet {
             UserDefaults.standard.set(temperatureSelection.rawValue,
                                       forKey: Self.temperatureSelectionKey)
@@ -73,7 +73,7 @@ final class FloatingMeterController {
         }
     }
 
-    private(set) var latestData: FloatingMeterData?
+    @Published private(set) var latestData: FloatingMeterData?
 
     var isRunning: Bool { status == .running || status == .starting }
     var hasSelectedContent: Bool { showPower || showTemperatures }
@@ -134,11 +134,17 @@ final class FloatingMeterController {
 
     private func renderLatest() {
         guard status != .unsupported, let sample = makeSample() else { return }
-        let renderer = layer.sampleBufferRenderer
         // A failed renderer stays failed until it is flushed, and then swallows
         // every frame in silence — which looks exactly like a frozen reading.
-        if renderer.status == .failed { renderer.flush() }
-        renderer.enqueue(sample)
+        // `sampleBufferRenderer` is iOS 17; before it the layer is its own renderer.
+        if #available(iOS 17.0, *) {
+            let renderer = layer.sampleBufferRenderer
+            if renderer.status == .failed { renderer.flush() }
+            renderer.enqueue(sample)
+        } else {
+            if layer.status == .failed { layer.flush() }
+            layer.enqueue(sample)
+        }
         hasPainted = true
 
         // Built here rather than in `start()`: `isPictureInPicturePossible` is the

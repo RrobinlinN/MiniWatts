@@ -1,13 +1,11 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Environment(PowerMonitor.self) private var monitor
-    @Environment(FloatingMeterController.self) private var floatingMeter
+    @EnvironmentObject private var monitor: PowerMonitor
+    @EnvironmentObject private var floatingMeter: FloatingMeterController
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        @Bindable var monitor = monitor
-        @Bindable var floatingMeter = floatingMeter
         NavigationStack {
             ZStack {
                 Backdrop(glow: .mwAccent, glowIntensity: 0.6)
@@ -33,7 +31,7 @@ struct SettingsView: View {
                     // `.frame(maxWidth: .infinity)` only expands, it does not clamp, so
                     // that width propagates up and the page starts scrolling sideways.
                     // The cap is part of the pin: see `PageScaffold`.
-                    .containerRelativeFrame(.horizontal) { width, _ in min(width, 760) }
+                    .pinnedToContainerWidth(maximum: 760)
                     .frame(maxWidth: .infinity)
                 }
             }

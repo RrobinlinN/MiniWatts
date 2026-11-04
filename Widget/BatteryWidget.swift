@@ -75,16 +75,28 @@ struct BatteryWidgetView: View {
 
     var body: some View {
         let palette = WidgetPalette(scheme)
-        content(palette)
-            .containerBackground(for: .widget) {
-                switch family {
-                case .systemSmall, .systemMedium:
-                    LinearGradient(colors: [palette.canvasTop, palette.canvas],
-                                   startPoint: .top, endPoint: .bottom)
-                default:
-                    Color.clear
-                }
-            }
+        if #available(iOS 17.0, *) {
+            content(palette)
+                .containerBackground(for: .widget) { background(palette) }
+        } else {
+            // No container background before iOS 17, and no system margins either:
+            // the widget pads itself and draws its own background edge to edge.
+            content(palette)
+                .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background { background(palette) }
+        }
+    }
+
+    @ViewBuilder
+    private func background(_ palette: WidgetPalette) -> some View {
+        switch family {
+        case .systemSmall, .systemMedium:
+            LinearGradient(colors: [palette.canvasTop, palette.canvas],
+                           startPoint: .top, endPoint: .bottom)
+        default:
+            Color.clear
+        }
     }
 
     @ViewBuilder
@@ -387,16 +399,4 @@ struct InlineBatteryView: View {
             Text("No reading")
         }
     }
-}
-
-#Preview(as: .systemSmall) {
-    BatteryWidget()
-} timeline: {
-    BatteryEntry.preview
-}
-
-#Preview(as: .systemMedium) {
-    BatteryWidget()
-} timeline: {
-    BatteryEntry.preview
 }

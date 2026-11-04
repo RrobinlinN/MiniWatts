@@ -1,18 +1,17 @@
+import Combine
 import Foundation
-import Observation
 
 /// Watches the system's own thermal verdict.
 ///
 /// This is public API, and it gives the temperature numbers a system-level
 /// context: a move past `.nominal` is a useful correlation when charge power
 /// drops, but it does not expose the charger controller's exact limiter.
-@Observable
-final class ThermalMonitor {
-    private(set) var state: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState
-    private(set) var lowPowerMode: Bool = ProcessInfo.processInfo.isLowPowerModeEnabled
+final class ThermalMonitor: ObservableObject {
+    @Published private(set) var state: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState
+    @Published private(set) var lowPowerMode: Bool = ProcessInfo.processInfo.isLowPowerModeEnabled
     /// When the current thermal state was entered, so the UI can say how long
     /// throttling has been in effect.
-    private(set) var stateSince: Date = .now
+    @Published private(set) var stateSince: Date = .now
 
     /// Polled from `PowerMonitor`'s one-second tick rather than driven by
     /// `thermalStateDidChangeNotification`.
@@ -28,7 +27,8 @@ final class ThermalMonitor {
             state = current
             stateSince = .now
         }
-        lowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
+        let lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+        if lowPower != lowPowerMode { lowPowerMode = lowPower }
     }
 }
 

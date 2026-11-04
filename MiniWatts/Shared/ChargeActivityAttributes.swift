@@ -53,6 +53,8 @@ nonisolated struct ChargeActivityAttributes: ActivityAttributes {
 /// the app's process, which iOS wakes for it, so the button closes the activity
 /// without opening MiniWatts. Compiled into both targets: the extension needs the type
 /// to draw the button, the app performs it.
+/// `LiveActivityIntent` is iOS 17; on iOS 16 the activity has no End button.
+@available(iOS 17.0, *)
 nonisolated struct EndChargeActivityIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "End Live Activity"
     static var isDiscoverable: Bool { false }

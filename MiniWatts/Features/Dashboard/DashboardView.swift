@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct DashboardView: View {
-    @Environment(PowerMonitor.self) private var monitor
+    @EnvironmentObject private var monitor: PowerMonitor
     @State private var showingSettings = false
 
     private var snapshot: PowerSnapshot { monitor.snapshot }

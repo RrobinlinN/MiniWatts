@@ -231,13 +231,17 @@ struct ActivityFootnote: View {
             }
             // The one way to close the activity while MiniWatts is suspended or killed:
             // iOS wakes the app to perform the intent.
-            Button(intent: EndChargeActivityIntent()) {
-                Label("End", systemImage: "xmark")
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(palette.track))
+            // Buttons that run an intent are iOS 17. Before that the activity has none,
+            // and unplugging with the app running is the way to end it.
+            if #available(iOS 17.0, *) {
+                Button(intent: EndChargeActivityIntent()) {
+                    Label("End", systemImage: "xmark")
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(palette.track))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .font(.system(size: 12, weight: .medium))
         .foregroundStyle(palette.muted)
@@ -322,24 +326,4 @@ private func formattedValue(
         return String(localized: "No reading")
     }
     return shortValue(for: metric, state: state)
-}
-
-#Preview("Lock Screen", as: .content,
-         using: ChargeActivityAttributes(startedAt: .now.addingTimeInterval(-1_800),
-                                         startPercent: 41)) {
-    ChargeLiveActivity()
-} contentStates: {
-    ChargeActivityContentState(
-        reading: ChargeReading(date: .now,
-                               percent: 72,
-                               externalConnected: true,
-                               isCharging: true,
-                               watts: 18.4,
-                               source: .charger,
-                               batteryTemperature: 33.6),
-        socTemperature: 39.2,
-        hottestTemperature: 41.3,
-        hottestSensorName: "PMU tdie1",
-        selectedMetric: .chargingPower
-    )
 }

@@ -1,0 +1,52 @@
+name: iOS 16 TrollStore
+
+# The iOS 16 port on this fork's ios16 branch: builds MiniWatts-trollstore.tipa and
+# publishes it as a pre-release, so it can be downloaded straight onto the phone.
+# Never marked latest, so the app source that follows releases/latest is unaffected.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ios16]
+
+permissions:
+  contents: write
+
+jobs:
+  tipa:
+    runs-on: macos-latest
+    steps:
+      # Full history: the build number is the commit count.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select newest Xcode
+        run: |
+          newest=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          sudo xcode-select -s "$newest"
+          xcodebuild -version
+
+      - name: Install ldid
+        run: brew install ldid
+
+      - name: Build
+        run: bash scripts/build-tipa.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MiniWatts-trollstore
+          path: build/export/MiniWatts-trollstore.tipa
+          if-no-files-found: error
+
+      - name: Publish pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios16-${{ github.run_number }}
+          name: iOS 16 TrollStore build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          make_latest: false
+          files: build/export/MiniWatts-trollstore.tipa
+          fail_on_unmatched_files: true
+          body: |
+            Private TrollStore build of MiniWatts for iOS 16.2+. Unsandboxed. Not an official release.

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct DevicesView: View {
-    @Environment(PowerMonitor.self) private var monitor
+    @EnvironmentObject private var monitor: PowerMonitor
 
     /// One card per accessory. BatteryCenter hands back a separate `BCBatteryDevice`
     /// for each piece of a multi-part accessory — left earbud, right earbud, case —

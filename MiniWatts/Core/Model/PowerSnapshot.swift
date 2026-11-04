@@ -187,7 +187,10 @@ nonisolated struct PowerSnapshot: @unchecked Sendable {
         // between phone models, and a current sensor for this rail may not exist at
         // all — on the models checked so far only the voltage is exposed.
         let coilVoltage = byKey["VQ1u"]?.value ?? rail(.voltage, ["Q1u"])
+        // Where the port's current sensor also carries the coil's, it stands in for the
+        // missing one — but only while the port itself reads no voltage.
         let coilCurrent = byKey["IQ1u"]?.value ?? rail(.current, ["Q1u"])
+            ?? (Self.portCurrentCarriesCoil && (usbVoltage ?? 0) < 0.5 ? usbCurrent : nil)
         let cellCurrent = sensor("IQ0B", "Charger IQ0B") ?? rail(.current, ["IQ0B"])
         let cellVoltage = sensor("VQ0l", "Charger VQ0l")
             ?? sensor("VP0u", "PMU VP0u")
@@ -435,6 +438,25 @@ nonisolated struct PowerSnapshot: @unchecked Sendable {
     /// charging path with no readable sensor — is not verified.
     static let readsHalfAtHighPower = modelIdentifier.hasPrefix("iPhone19,")
 
+    /// Models where `IQ0u` carries the MagSafe current as well as the port's.
+    ///
+    /// An iPhone 12 (iPhone13,2, iOS 16.5) has no `IQ1u`, but on a MagSafe charger
+    /// `IQ0u` read 0.3–0.97 A while `VQ0u` sat at 0 and `VQ1u` at 6–11 V. `QQ0u` — the
+    /// running total of `IQ0u` — rose at 0.95× the mean `IQ0u` over the same stretch,
+    /// so it is the one current, not a stale wired reading. At 36 %, `VQ1u × IQ0u` was
+    /// 9.5 W against 5.3 W into the cell; at 21 % on a 9 V Lightning PD charger the
+    /// wired pair was 14.8 W against 12.5 W. Not checked against an inline meter. On an
+    /// iPhone 17 `IQ0u` reads nothing on MagSafe, which is why this is a list.
+    static let portCurrentCarriesCoil = modelIdentifier == "iPhone13,2"
+
+    /// Models that park a switched-off temperature sensor at exactly 30.0 °C.
+    ///
+    /// The same iPhone 12 reads exactly 30.000 on eighteen sensors — the GPU, ANE and
+    /// ISP sensors and two radio-skin sensors — through every sample of every run,
+    /// plugged in or not, while each neighbour moved. On other models a sensor sitting
+    /// on a round number for one sample is no reason to drop it, so this is a list too.
+    static let parksUnpoweredSensorsAt30 = modelIdentifier == "iPhone13,2"
+
     /// True when the half reading *can* apply: an 18 Pro on a wired adapter whose
     /// negotiated profile offers more than 30 W.
     ///
@@ -501,6 +523,9 @@ nonisolated struct PowerSnapshot: @unchecked Sendable {
         if reading.value == 0 {
             return "exactly 0.0 °C, which is what an unpowered sensor reports"
         }
+        if reading.value == 30, Self.parksUnpoweredSensorsAt30 {
+            return "exactly 30.0 °C, which is where this model parks an unpowered sensor"
+        }
         let name = reading.name.lowercased()
         if name.contains("tdev"), reading.value < -10 {
             return "below the plausible temperature of a powered die"
@@ -508,12 +533,20 @@ nonisolated struct PowerSnapshot: @unchecked Sendable {
         // Any rail, not only Q0: an iPhone 11 idles at `TQ0d` 97.5 °C beside a 29 °C
         // `TQ0j`, and an iPad Pro M1 does the same on `TQ2d`. Each die is checked
         // against the junction sensor of its own rail.
-        guard let rail = Self.chargeDieRail(in: name), reading.value > 85 else { return nil }
+        guard let rail = Self.chargeDieRail(in: name) else { return nil }
         let junction = allSensors.first {
             $0.kind == .temperature
                 && $0.name.localizedCaseInsensitiveContains("tq\(rail)j")
                 && HIDSensors.plausibleCelsius.contains($0.value)
         }?.value
+        // Not only high values. An iPhone 12's `TQ0d` has read −7.42, 80.66, 92.41,
+        // 97.54 and 103.54 beside a `TQ0j` of 24–46 °C, and never anything near it;
+        // −7.42 and 80.66 both passed the check below. A die and the junction on its
+        // own rail do not sit 30 °C apart.
+        if let junction, abs(reading.value - junction) > 30 {
+            return "more than 30 °C from the junction reading on its own rail"
+        }
+        guard reading.value > 85 else { return nil }
         guard externalConnected, let junction, junction >= 60 else {
             return "high charge-IC die value without a matching live junction reading"
         }

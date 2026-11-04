@@ -2,8 +2,11 @@ import SwiftUI
 import UIKit
 
 struct RootView: View {
-    @Environment(PowerMonitor.self) private var monitor
-    @Environment(FloatingMeterController.self) private var floatingMeter
+    /// Plain references rather than `@EnvironmentObject`: holding either as an
+    /// observed object would re-run this body, and the tab view under it, on every
+    /// tick. Nothing here needs to: the monitor is only read inside closures.
+    let monitor: PowerMonitor
+    let floatingMeter: FloatingMeterController
     @Environment(\.scenePhase) private var scenePhase
     @State private var liveActivity = ChargeActivityController()
     @State private var widgets = WidgetPublisher()
@@ -32,7 +35,7 @@ struct RootView: View {
                 .opacity(0.02)
                 .allowsHitTesting(false)
         }
-        .task {
+        .task { [monitor] in
             // Every glance is fed from the tick rather than from `onChange`: SwiftUI
             // stops updating views once the app is off screen, and off screen is
             // exactly where the floating meter earns its keep. Each consumer
@@ -48,7 +51,7 @@ struct RootView: View {
                 widgets.publish(reading, lastSession: monitor.sessions.first)
             }
         }
-        .onChange(of: scenePhase, initial: true) { _, phase in
+        .onChangeIncludingInitial(of: scenePhase) { phase in
             switch phase {
             case .active:
                 monitor.start()
@@ -111,12 +114,12 @@ private struct TabPage<Content: View>: View {
 /// second. Read in `RootView`'s body, it re-ran that body — and the tab view under
 /// it — on every tick; here it re-runs an empty view.
 private struct ScreenAwakeHolder: View {
-    @Environment(PowerMonitor.self) private var monitor
+    @EnvironmentObject private var monitor: PowerMonitor
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Color.clear
-            .onChange(of: shouldStayAwake, initial: true) { _, awake in
+            .onChangeIncludingInitial(of: shouldStayAwake) { awake in
                 UIApplication.shared.isIdleTimerDisabled = awake
             }
     }
@@ -178,7 +181,7 @@ struct PageScaffold<Content: View>: View {
                     // same frame: the pin is a fixed width, so a `frame(maxWidth:)`
                     // after it cannot narrow it — the content just overflows that frame
                     // by the same amount on both sides and looks exactly as wide as before.
-                    .containerRelativeFrame(.horizontal) { width, _ in min(width, 760) }
+                    .pinnedToContainerWidth(maximum: 760)
                     .frame(maxWidth: .infinity)
                 }
             }

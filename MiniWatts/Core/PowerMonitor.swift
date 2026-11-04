@@ -1,5 +1,5 @@
+import Combine
 import Foundation
-import Observation
 
 /// One point in the rolling live chart.
 nonisolated struct LiveSample: Identifiable, Hashable {
@@ -12,56 +12,60 @@ nonisolated struct LiveSample: Identifiable, Hashable {
 
 /// Drives every probe on a one-second tick and merges the results into one
 /// observable object the whole UI reads from.
-@Observable
-final class PowerMonitor {
+///
+/// An `ObservableObject` rather than `@Observable`, which is iOS 17: every
+/// published change re-runs every view that holds the monitor, not only the views
+/// that read the property that changed. See *Performance* in CLAUDE.md for what
+/// that costs at one tick a second.
+final class PowerMonitor: ObservableObject {
     // MARK: Published state
 
-    private(set) var snapshot = PowerSnapshot()
-    private(set) var live: [LiveSample] = []
-    private(set) var devices: [ExternalBatteryDevice] = []
-    private(set) var sessions: [ChargeSession] = []
-    private(set) var currentSession: ChargeSession?
-    private(set) var sessionTotals = EnergyTotals()
+    @Published private(set) var snapshot = PowerSnapshot()
+    @Published private(set) var live: [LiveSample] = []
+    @Published private(set) var devices: [ExternalBatteryDevice] = []
+    @Published private(set) var sessions: [ChargeSession] = []
+    @Published private(set) var currentSession: ChargeSession?
+    @Published private(set) var sessionTotals = EnergyTotals()
     /// Watts estimated from how fast the percentage moves. The only way to see
     /// discharge power: no discharge-current sensor is exposed to a sandboxed app.
-    private(set) var rateEstimateWatts: Double?
+    @Published private(set) var rateEstimateWatts: Double?
     /// The level's rise against the cell sensors over the same stretch, while
     /// charging. See `LevelRateCheck`.
-    private(set) var levelRateCheck: LevelRateCheck?
+    @Published private(set) var levelRateCheck: LevelRateCheck?
     /// Resistance of the whole charging path — charger, cable, both plugs — inferred
     /// from how the port voltage sags as the current rises. Nil until the current
     /// has moved far enough for the fit to mean anything. See `PathResistanceMeter`.
-    private(set) var pathResistance: PathResistanceEstimate?
-    private(set) var diagnostics: [String] = []
+    @Published private(set) var pathResistance: PathResistanceEstimate?
+    @Published private(set) var diagnostics: [String] = []
     /// Every power source powerd reports, not just the internal battery.
     ///
     /// BatteryCenter is built on this same list — it has a `_BCPowerSourceController`
     /// and registers for power-source change notifications — so if accessories are
     /// reachable at all from a sandboxed app, they show up here.
-    private(set) var powerSources: [[String: Any]] = []
+    @Published private(set) var powerSources: [[String: Any]] = []
     /// False until the session file has been read. Nothing is written before then:
     /// the load is asynchronous now, and a save that landed first would overwrite
     /// the whole history with an empty array.
-    private(set) var isLoaded = false
+    @Published private(set) var isLoaded = false
 
     /// Whether to hold the screen awake while the phone is plugged in.
     ///
     /// The screen locking is what used to end a charge session two minutes in — the
     /// tick stops with the app, and a full charge could never be recorded. Applied
     /// by `RootView`, which is where UIKit belongs; `Core` stays UI-free.
-    var keepScreenAwakeWhileCharging: Bool {
+    @Published var keepScreenAwakeWhileCharging: Bool {
         didSet { UserDefaults.standard.set(keepScreenAwakeWhileCharging, forKey: Self.keepAwakeKey) }
     }
 
     /// Whether to show the charging live activity on the Lock Screen, in the Dynamic
     /// Island and in StandBy. Applied by `RootView`, like the setting above.
-    var showsLiveActivityWhileCharging: Bool {
+    @Published var showsLiveActivityWhileCharging: Bool {
         didSet { UserDefaults.standard.set(showsLiveActivityWhileCharging, forKey: Self.liveActivityKey) }
     }
 
     /// The reading used by the compact Dynamic Island presentation. This changes
     /// presentation only; the activity remains charger-bound.
-    var liveActivityMetric: LiveActivityMetric {
+    @Published var liveActivityMetric: LiveActivityMetric {
         didSet {
             UserDefaults.standard.set(liveActivityMetric.rawValue,
                                       forKey: Self.liveActivityMetricKey)
@@ -69,6 +73,10 @@ final class PowerMonitor {
     }
 
     let thermal = ThermalMonitor()
+    /// `ObservableObject` does not pass a child's changes up to its parent, and views
+    /// read `monitor.thermal.state` through the monitor. The tick republishes the
+    /// snapshot every second anyway; this covers a change that lands between ticks.
+    private var thermalChanges: AnyCancellable?
 
     /// Called at the end of every tick. `RootView` installs it and fans the reading
     /// out to the live activity, the widget and the floating meter.
@@ -89,7 +97,7 @@ final class PowerMonitor {
         }
     }
 
-    var configuredBatteryWattHours: Double {
+    @Published var configuredBatteryWattHours: Double {
         didSet { UserDefaults.standard.set(configuredBatteryWattHours, forKey: Self.wattHoursKey) }
     }
 
@@ -181,7 +189,7 @@ final class PowerMonitor {
     private var stableHoldState: ChargeHoldState?
     private var holdCandidate: ChargeHoldState?
     private var holdCandidateSince: Date?
-    private var sensorServiceCount: Int = 0
+    @Published private var sensorServiceCount: Int = 0
     /// Why the session history came up empty, when the file was there and could not
     /// be read. Kept apart from `diagnostics` because that list is rebuilt whenever
     /// the sensor count changes — on the first plug event, an appended line was gone.
@@ -199,6 +207,9 @@ final class PowerMonitor {
             .flatMap(LiveActivityMetric.init(rawValue:)) ?? .chargingPower
         sensorServiceCount = probeService.initialServiceCount
         collectDiagnostics()
+        thermalChanges = thermal.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
         Task { await loadStoredSessions() }
     }
 
@@ -271,8 +282,8 @@ final class PowerMonitor {
         // screen was Debug-only; now that the page ships, the guard made its "powerd
         // power sources" panel report none in every release build — a false statement
         // on the one page whose job is to show what the probes actually returned. The
-        // write costs nothing while that page is closed: `@Observable` invalidates only
-        // views that read the property, and no other view does.
+        // write is not free any more: `ObservableObject` re-runs every view that holds
+        // the monitor, and `snapshot` is published on the same tick anyway.
         powerSources = result.sources
         snapshot = current
         if sensorServiceCount != result.serviceCount {

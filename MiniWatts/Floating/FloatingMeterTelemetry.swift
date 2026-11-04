@@ -71,7 +71,7 @@ nonisolated struct FloatingMeterData: Hashable {
 /// remains mounted behind `RootView`, so changing a preference cannot move or tear
 /// down the active Picture in Picture source.
 struct FloatingMeterPreview: View {
-    let controller: FloatingMeterController
+    @ObservedObject var controller: FloatingMeterController
 
     var body: some View {
         GeometryReader { geometry in
