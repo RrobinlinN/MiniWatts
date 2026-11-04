@@ -7,6 +7,7 @@ struct DashboardView: View {
     @Environment(\.powerMonitor) private var unobservedMonitor
     private var monitor: PowerMonitor { unobservedMonitor! }
     @State private var showingSettings = false
+    @AppStorage(PerformanceExperiments.noLiveChartKey) private var noLiveChart = false
 
     private var snapshot: PowerSnapshot { monitor.snapshot }
     private var plugged: Bool { snapshot.externalConnected }
@@ -17,7 +18,7 @@ struct DashboardView: View {
             if monitor.thermal.state.isThrottling { throttleBanner }
             batteryPanel
             breakdownPanel
-            livePanel
+            if !noLiveChart { livePanel }
             sessionPanel
             if !monitor.sensorsAvailable { sensorNote }
         }

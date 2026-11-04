@@ -14,6 +14,9 @@ struct PowerRing: View {
     let caption: LocalizedStringResource?
     var tint: Color = .mwAccent
     var size: CGFloat = 232
+    /// A switch in Settings, for finding the once-a-second hitch on iOS 16. See
+    /// `PerformanceExperiments`.
+    @AppStorage(PerformanceExperiments.noDialGlowKey) private var noGlow = false
 
     /// 280 of 360 degrees, opening at the bottom.
     private let sweep: CGFloat = 280.0 / 360.0
@@ -33,36 +36,12 @@ struct PowerRing: View {
         // Both fractions change on the one-second tick. Animating them kept the
         // dial drawing for almost half of every second while the page scrolled.
         ZStack {
-            ticks
+            DialTicks(startAngle: startAngle)
             arc(width: 14, inset: 0, fraction: inputFraction, color: tint)
             arc(width: 8, inset: 26, fraction: batteryFraction, color: .mwBattery)
             centre
         }
         .frame(width: size, height: size)
-    }
-
-    private var ticks: some View {
-        Canvas { context, canvasSize in
-            let centre = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
-            let radius = min(canvasSize.width, canvasSize.height) / 2 - 1
-            let count = 57
-            for index in 0...count {
-                let progress = Double(index) / Double(count)
-                let angle = Angle.degrees(startAngle + progress * 280).radians
-                let major = index % 7 == 0
-                let length: CGFloat = major ? 9 : 5
-                let start = CGPoint(x: centre.x + cos(angle) * (radius - length),
-                                    y: centre.y + sin(angle) * (radius - length))
-                let end = CGPoint(x: centre.x + cos(angle) * radius,
-                                  y: centre.y + sin(angle) * radius)
-                var path = Path()
-                path.move(to: start)
-                path.addLine(to: end)
-                context.stroke(path,
-                               with: .color(.mwMuted.opacity(major ? 0.45 : 0.2)),
-                               lineWidth: major ? 1.5 : 1)
-            }
-        }
     }
 
     private func arc(width: CGFloat, inset: CGFloat, fraction: CGFloat, color: Color) -> some View {
@@ -73,7 +52,7 @@ struct PowerRing: View {
             Circle()
                 .trim(from: 0, to: sweep * fraction)
                 .stroke(Theme.gradient(color), style: StrokeStyle(lineWidth: width, lineCap: .round))
-                .shadow(color: color.opacity(fraction > 0.01 ? 0.55 : 0), radius: 10)
+                .shadow(color: color.opacity(fraction > 0.01 ? 0.55 : 0), radius: noGlow ? 0 : 10)
         }
         .rotationEffect(.degrees(startAngle))
         .padding(width / 2 + inset)
@@ -109,5 +88,36 @@ struct PowerRing: View {
             }
         }
         .padding(.horizontal, 34)
+    }
+}
+
+/// The dial's scale. A view of its own, with nothing in it that changes, so a tick
+/// that re-runs `PowerRing` does not re-run this and redraw the `Canvas`: the marks
+/// are the same every second.
+private struct DialTicks: View {
+    let startAngle: Double
+
+    var body: some View {
+        Canvas { context, canvasSize in
+            let centre = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
+            let radius = min(canvasSize.width, canvasSize.height) / 2 - 1
+            let count = 57
+            for index in 0...count {
+                let progress = Double(index) / Double(count)
+                let angle = Angle.degrees(startAngle + progress * 280).radians
+                let major = index % 7 == 0
+                let length: CGFloat = major ? 9 : 5
+                let start = CGPoint(x: centre.x + cos(angle) * (radius - length),
+                                    y: centre.y + sin(angle) * (radius - length))
+                let end = CGPoint(x: centre.x + cos(angle) * radius,
+                                  y: centre.y + sin(angle) * radius)
+                var path = Path()
+                path.move(to: start)
+                path.addLine(to: end)
+                context.stroke(path,
+                               with: .color(.mwMuted.opacity(major ? 0.45 : 0.2)),
+                               lineWidth: major ? 1.5 : 1)
+            }
+        }
     }
 }

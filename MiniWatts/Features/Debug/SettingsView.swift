@@ -21,6 +21,7 @@ struct SettingsView: View {
                         capacityPanel(capacity: $monitor.configuredBatteryWattHours)
                         devicePanel
                         aboutPanel
+                        PerformanceExperiments()
                         rawDataLink
                     }
                     .padding(.horizontal, 16)
