@@ -63,9 +63,8 @@ struct Panel<Content: View>: View {
     /// not, and SwiftUI cannot see into a closure to tell that it would now produce
     /// something new. A panel whose header never changes therefore never re-ran:
     /// the dial on Power froze while the Power path panel below it, whose header
-    /// shows the adapter utilisation, kept moving. The gate rather than the monitor,
-    /// so that a tick waits while the page scrolls — see `TickGate`.
-    @EnvironmentObject private var tickGate: TickGate
+    /// shows the adapter utilisation, kept moving.
+    @EnvironmentObject private var monitor: PowerMonitor
 
     init(_ title: LocalizedStringResource? = nil,
          systemImage: String? = nil,

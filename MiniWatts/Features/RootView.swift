@@ -145,8 +145,6 @@ struct PageScaffold<Content: View>: View {
     var glow: () -> Color
     var toolbar: AnyView?
     @ViewBuilder var content: () -> Content
-    /// Told when the page moves, so the tick's redraw waits until it stops.
-    @Environment(\.tickGate) private var tickGate
 
     init(_ title: LocalizedStringResource,
          glow: @autoclosure @escaping () -> Color = .mwAccent,
@@ -170,7 +168,6 @@ struct PageScaffold<Content: View>: View {
                     LazyVStack(spacing: 14) {
                         PageContent(content: content)
                     }
-                    .background { ScrollMotionProbe { tickGate?.scrollMoved() } }
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
                     .padding(.bottom, 24)
@@ -207,8 +204,7 @@ private struct PageContent<Content: View>: View {
     /// Observed only so that a tick re-runs this view, and with it the page's panels.
     /// The pages read the monitor without observing it; under `@Observable` this view
     /// picked up their reads as its own dependencies, and `ObservableObject` cannot.
-    /// Through the gate, so that a tick waits while the page scrolls.
-    @EnvironmentObject private var tickGate: TickGate
+    @EnvironmentObject private var monitor: PowerMonitor
 
     var body: some View {
         content()
@@ -219,7 +215,7 @@ private struct PageContent<Content: View>: View {
 private struct PageBackdrop: View {
     let glow: () -> Color
     /// Observed for the same reason as in `PageContent`.
-    @EnvironmentObject private var tickGate: TickGate
+    @EnvironmentObject private var monitor: PowerMonitor
 
     var body: some View {
         Backdrop(glow: glow())

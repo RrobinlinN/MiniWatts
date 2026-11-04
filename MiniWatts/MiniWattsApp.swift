@@ -10,14 +10,10 @@ struct MiniWattsApp: App {
     /// One per process, and alive for as long as the app is: the layer Picture in
     /// Picture draws from cannot come and go with a settings sheet.
     private let floatingMeter = FloatingMeterController()
-    /// Passes the monitor's ticks to the views that redraw with them, holding them
-    /// while a page scrolls. See `TickGate`.
-    private let tickGate: TickGate
 
     init() {
         let monitor = PowerMonitor()
         self.monitor = monitor
-        tickGate = TickGate(monitor: monitor)
         // The Shortcuts action runs in this process — launched in the background, with
         // no scene, when the app is not already running — and has to read through this
         // monitor's sensors rather than open its own: a process gets one working HID
@@ -31,8 +27,6 @@ struct MiniWattsApp: App {
             RootView(monitor: monitor, floatingMeter: floatingMeter)
                 .environmentObject(monitor)
                 .environment(\.powerMonitor, monitor)
-                .environmentObject(tickGate)
-                .environment(\.tickGate, tickGate)
                 .environmentObject(floatingMeter)
         }
     }
