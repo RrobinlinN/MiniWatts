@@ -197,15 +197,16 @@ struct ThermalView: View {
         }
     }
 
-    /// Where the battery figure came from. Usually a HID sensor; on the simulator —
-    /// and anywhere else the registry is not filtered — it is the registry itself,
-    /// which is a different provenance and worth saying so.
+    /// Where the battery figure came from: the HID battery sensors, in the order
+    /// `PowerSnapshot.batteryTemperature` takes them, or the registry where there are
+    /// none — the simulator — which is a different provenance and worth saying so.
     private var batteryTemperatureSource: Text? {
-        if snapshot.registryTemperature != nil { return Text(verbatim: "IOPMPowerSource") }
         if snapshot.batteryTemperatureReadings.count > 1 {
             return Text(verbatim: "median of \(snapshot.batteryTemperatureReadings.count) battery sensors")
         }
-        return snapshot.hottestSensor(in: .battery).map(sensorSource)
+        if let sensor = snapshot.hottestSensor(in: .battery) { return sensorSource(sensor) }
+        if snapshot.registryTemperature != nil { return Text(verbatim: "IOPMPowerSource") }
+        return nil
     }
 
     // MARK: Zones

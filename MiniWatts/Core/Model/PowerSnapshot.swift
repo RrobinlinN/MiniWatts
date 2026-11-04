@@ -567,8 +567,12 @@ nonisolated struct PowerSnapshot: @unchecked Sendable {
         return sorted[middle]
     }
 
+    /// The battery sensors first, the registry only where there are none — the
+    /// simulator. Outside the sandbox the registry answers on a phone too, but its
+    /// `Temperature` moves every 20 s where the sensors move every second, and it is
+    /// not the figure the heat map's battery pin shows.
     var batteryTemperature: Double? {
-        registryTemperature ?? Self.median(batteryTemperatureReadings.map(\.value))
+        Self.median(batteryTemperatureReadings.map(\.value)) ?? registryTemperature
     }
     var chargerTemperature: Double? { temperature(in: .charger) }
     var socTemperature: Double? { temperature(in: .soc) }

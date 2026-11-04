@@ -58,6 +58,13 @@ struct Panel<Content: View>: View {
     /// this a `Text` puts that choice at the call site, where it is knowable.
     var trailing: Text?
     @ViewBuilder var content: () -> Content
+    /// Observed so that a tick re-runs the panel. `@Observable` used to make the
+    /// content closure's reads the panel's own dependencies; `ObservableObject` does
+    /// not, and SwiftUI cannot see into a closure to tell that it would now produce
+    /// something new. A panel whose header never changes therefore never re-ran:
+    /// the dial on Power froze while the Power path panel below it, whose header
+    /// shows the adapter utilisation, kept moving.
+    @EnvironmentObject private var monitor: PowerMonitor
 
     init(_ title: LocalizedStringResource? = nil,
          systemImage: String? = nil,
