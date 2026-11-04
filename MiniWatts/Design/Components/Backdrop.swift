@@ -31,20 +31,46 @@ struct Backdrop: View {
                 }
                 context.stroke(path, with: .color(.mwGrid), lineWidth: 0.5)
             }
-            // Rasterised once into a texture instead of stroking ~50 lines on
-            // every pass. Kept to the grid alone: the glow below it uses
-            // `plusLighter`, and blend modes inside a drawing group do not always
-            // composite the same way.
-            .drawingGroup()
+            .modifier(Rasterised())
 
             RadialGradient(colors: [glow.opacity(0.22 * glowIntensity), .clear],
                            center: .init(x: 0.5, y: 0.18),
                            startRadius: 0,
                            endRadius: 420)
-                .blendMode(.plusLighter)
+                .modifier(Brightening())
                 .animation(.easeInOut(duration: 0.8), value: glow)
         }
         .ignoresSafeArea()
+    }
+
+    /// Rasterised once into a texture instead of stroking ~50 lines on every pass.
+    /// Kept to the grid alone: the glow below it uses `plusLighter`, and blend modes
+    /// inside a drawing group do not always composite the same way.
+    ///
+    /// Not on iOS 16. On an iPhone 12 the background flickered as the Settings sheet
+    /// came up while the panels on it did not, and scrolling Power stuttered once a
+    /// second; the offscreen texture and the blend below are the two things in the
+    /// backdrop that composite differently from everything else on screen.
+    private struct Rasterised: ViewModifier {
+        func body(content: Content) -> some View {
+            if #available(iOS 17.0, *) {
+                content.drawingGroup()
+            } else {
+                content
+            }
+        }
+    }
+
+    /// The glow adds light to the wash under it. On iOS 16 it is laid over it
+    /// normally instead, for the reason given under `Rasterised`.
+    private struct Brightening: ViewModifier {
+        func body(content: Content) -> some View {
+            if #available(iOS 17.0, *) {
+                content.blendMode(.plusLighter)
+            } else {
+                content
+            }
+        }
     }
 }
 
