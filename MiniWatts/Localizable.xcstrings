@@ -2834,46 +2834,6 @@
           }
         }
       }
-    },
-    "Performance experiments" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "性能实验"
-          }
-        }
-      }
-    },
-    "No glow on the dial" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "表盘不发光"
-          }
-        }
-      }
-    },
-    "No live chart on Power" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "功率页不显示实时曲线"
-          }
-        }
-      }
-    },
-    "For finding what makes scrolling stutter once a second. Turn one on, scroll the Power page and let it coast, and see whether the stutter goes." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "用来找出每秒卡一下的原因。打开其中一项，在功率页滑动并让它惯性滚动，看卡顿是否消失。"
-          }
-        }
-      }
     }
   },
   "version" : "1.0"

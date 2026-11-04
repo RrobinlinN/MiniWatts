@@ -14,9 +14,6 @@ struct PowerRing: View {
     let caption: LocalizedStringResource?
     var tint: Color = .mwAccent
     var size: CGFloat = 232
-    /// A switch in Settings, for finding the once-a-second hitch on iOS 16. See
-    /// `PerformanceExperiments`.
-    @AppStorage(PerformanceExperiments.noDialGlowKey) private var noGlow = false
 
     /// 280 of 360 degrees, opening at the bottom.
     private let sweep: CGFloat = 280.0 / 360.0
@@ -52,7 +49,7 @@ struct PowerRing: View {
             Circle()
                 .trim(from: 0, to: sweep * fraction)
                 .stroke(Theme.gradient(color), style: StrokeStyle(lineWidth: width, lineCap: .round))
-                .shadow(color: color.opacity(fraction > 0.01 ? 0.55 : 0), radius: noGlow ? 0 : 10)
+                .shadow(color: color.opacity(fraction > 0.01 ? 0.55 : 0), radius: 10)
         }
         .rotationEffect(.degrees(startAngle))
         .padding(width / 2 + inset)
