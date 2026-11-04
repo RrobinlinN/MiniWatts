@@ -201,6 +201,10 @@ struct PageScaffold<Content: View>: View {
 /// into the enclosing list, so the stack stays lazy panel by panel.
 private struct PageContent<Content: View>: View {
     let content: () -> Content
+    /// Observed only so that a tick re-runs this view, and with it the page's panels.
+    /// The pages read the monitor without observing it; under `@Observable` this view
+    /// picked up their reads as its own dependencies, and `ObservableObject` cannot.
+    @EnvironmentObject private var monitor: PowerMonitor
 
     var body: some View {
         content()
@@ -210,6 +214,8 @@ private struct PageContent<Content: View>: View {
 /// The backdrop, with its glow read here for the same reason.
 private struct PageBackdrop: View {
     let glow: () -> Color
+    /// Observed for the same reason as in `PageContent`.
+    @EnvironmentObject private var monitor: PowerMonitor
 
     var body: some View {
         Backdrop(glow: glow())

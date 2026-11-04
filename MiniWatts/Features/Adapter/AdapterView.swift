@@ -1,7 +1,11 @@
 import SwiftUI
 
 struct AdapterView: View {
-    @EnvironmentObject private var monitor: PowerMonitor
+    /// Read, not observed. Observing it here would re-run this whole page, and the
+    /// navigation stack and scroll view under it, on every tick; `PageScaffold`'s
+    /// content and backdrop observe it instead. See `PageContent`.
+    @Environment(\.powerMonitor) private var unobservedMonitor
+    private var monitor: PowerMonitor { unobservedMonitor! }
 
     private var snapshot: PowerSnapshot { monitor.snapshot }
 

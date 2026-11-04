@@ -29,7 +29,11 @@ extension ChargeSession {
 }
 
 struct SessionsView: View {
-    @EnvironmentObject private var monitor: PowerMonitor
+    /// Read, not observed. Observing it here would re-run this whole page, and the
+    /// navigation stack and scroll view under it, on every tick; `PageScaffold`'s
+    /// content and backdrop observe it instead. See `PageContent`.
+    @Environment(\.powerMonitor) private var unobservedMonitor
+    private var monitor: PowerMonitor { unobservedMonitor! }
     @State private var confirmingDelete = false
 
     var body: some View {
@@ -63,9 +67,7 @@ struct SessionsView: View {
     }
 
     private var toolbar: some View {
-        Button { confirmingDelete = true } label: { Image(systemName: "trash") }
-            .tint(.mwDanger)
-            .disabled(monitor.sessions.isEmpty)
+        DeleteAllButton { confirmingDelete = true }
     }
 
     private func currentPanel(_ session: ChargeSession) -> some View {
@@ -114,6 +116,20 @@ struct SessionsView: View {
                        unit: "%", tint: .mwLoss, size: 21)
             }
         }
+    }
+}
+
+/// The toolbar's delete button, observing the monitor itself: the page does not, and
+/// the history arrives after the first frame, so a button built from the page's own
+/// read stayed disabled until the tab was left and opened again.
+private struct DeleteAllButton: View {
+    @EnvironmentObject private var monitor: PowerMonitor
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) { Image(systemName: "trash") }
+            .tint(.mwDanger)
+            .disabled(monitor.sessions.isEmpty)
     }
 }
 

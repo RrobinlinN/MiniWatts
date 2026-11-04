@@ -26,6 +26,7 @@ struct MiniWattsApp: App {
         WindowGroup {
             RootView(monitor: monitor, floatingMeter: floatingMeter)
                 .environmentObject(monitor)
+                .environment(\.powerMonitor, monitor)
                 .environmentObject(floatingMeter)
         }
     }

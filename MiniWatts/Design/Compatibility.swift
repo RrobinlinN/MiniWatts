@@ -35,3 +35,21 @@ extension View {
         }
     }
 }
+
+/// The monitor, handed down without observing it.
+///
+/// `@Observable` tracked reads per property, so a page could read the monitor inside
+/// the closures it gives `PageScaffold` and only those closures' views re-ran on a
+/// tick. `ObservableObject` invalidates every view that holds the object, whatever it
+/// reads. A page therefore takes the monitor from here, which re-runs nothing, and the
+/// two views inside `PageScaffold` that must re-run each tick observe it themselves.
+private nonisolated struct PowerMonitorKey: EnvironmentKey {
+    static let defaultValue: PowerMonitor? = nil
+}
+
+extension EnvironmentValues {
+    var powerMonitor: PowerMonitor? {
+        get { self[PowerMonitorKey.self] }
+        set { self[PowerMonitorKey.self] = newValue }
+    }
+}
